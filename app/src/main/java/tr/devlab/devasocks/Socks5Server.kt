@@ -148,7 +148,7 @@ class Socks5Server(
                 output.flush()
                 throw IOException("istemci NO-AUTH duyurmadı")
             }
-            output.write(byteArrayOf(5, NO_AUTH))
+            output.write(byteArrayOf(5, NO_AUTH.toByte()))
             output.flush()
 
             // 2) Request: VER | CMD | RSV | ATYP | DST.ADDR | DST.PORT
@@ -420,6 +420,10 @@ class Socks5Server(
     private fun idleExpired(lastActive: AtomicLong): Boolean = now() - lastActive.get() > UDP_IDLE_MS
 
     private fun key(addr: InetAddress, port: Int): String = (addr.hostAddress ?: "?") + ":" + port
+
+    /** 16-bit portu big-endian olarak [off] icindeki 2 byte'tan oku. */
+    private fun portAt(buf: ByteArray, off: Int): Int =
+        ((buf[off].toInt() and 0xFF) shl 8) or (buf[off + 1].toInt() and 0xFF)
 
     /** [RSV 2 | FRAG 1 | ATYP 1 | ADDR n | PORT 2] -> (addr, port, dataOffset) */
     private fun parsePacketAddress(buf: ByteArray, len: Int): Triple<InetAddress, Int, Int>? {
