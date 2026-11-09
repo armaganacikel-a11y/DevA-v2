@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dev-A v2</string>
+    <string name="subtitle">SOCKS5 Proxy Sunucusu&#8226;TCP CONNECT + UDP ASSOCIATE</string>
+    <string name="status_stopped">&#9679; DURUYOR</string>
+    <string name="status_running">&#9679; ÇALIŞIYOR</string>
+    <string name="start">BAŞLAT</string>
+    <string name="stop">DURDUR</string>
+    <string name="clear">LOG TEMİZLE</string>
+    <string name="port_value">Port: %1$d</string>
+    <string name="conn_value">Aktif bağlantı: %1$d</string>
+    <string name="log_title">CANLI LOG</string>
+    <string name="hint_miui">MIUI pil kısıtlamalarını README.md bölümüne göre kapalı tutun.</string>
+    <string name="hint">Başlatmak için BAŞLAT\'a dokun. Listenin 0.0.0.0:%1$d olması adb forward ve WiFi erişimi için yeterlidir.</string>
+    <string name="notif_channel_name">Dev-A v2 durumu</string>
+    <string name="notif_title">Dev-A v2 (SOCKS5)</string>
+    <string name="notif_text">Port %1$d &#8226; %2$d aktif bağlantı</string>
+</resources>
