@@ -232,7 +232,8 @@ class Socks5Server(
 
             remote.tcpNoDelay = true
             registerTcp(remote)
-            reply(output, REP_SUCCESS, pickBindAddress(remote.localAddress), remote.port)
+            // P2-7: RFC 1928 BND.PORT = proxy'nin YEREL portu; hedef portu degil.
+            reply(output, REP_SUCCESS, pickBindAddress(remote.localAddress), remote.localPort)
             // Relay fazinda bloklu okuma
             client.soTimeout = 0
             LogBus.log("[+] CONNECT OK " + host + ":" + port)
@@ -270,6 +271,9 @@ class Socks5Server(
     private fun serveUdpAssociate(client: Socket, output: OutputStream, ip: InetAddress?, dport: Int) {
         val relay = DatagramSocket(null)
         val outbound = DatagramSocket(null)
+        // P1-6: relay thread'leri baslatildi mi? catch'teki sayaç düsümü yalnizca
+        // thread'ler spawned OLMADIysa yapilir; monitorControl zaten düsürür.
+        var spawned = false
         try {
             relay.reuseAddress = true
             relay.bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0))
@@ -293,6 +297,7 @@ class Socks5Server(
             thread(name = "SOCKS-UDP-DN") { udpDownstreamLoop(relay, outbound, routes, lastActive) }
             thread(name = "SOCKS-UDP-UP") { udpUpstreamLoop(outbound, relay, routes, lastActive) }
             thread(name = "SOCKS-UDP-CTL") { monitorControl(client) }
+            spawned = true
 
             LogBus.log(
                 "[+] UDP relay acik: " + bnd.hostAddress + ":" + relay.localPort +
@@ -309,8 +314,10 @@ class Socks5Server(
             }
             closeQuietly(client)
             unregisterTcp(client)
-            connectionCount.decrementAndGet()
-            publishCount(connectionCount.get())
+            if (!spawned) {
+                connectionCount.decrementAndGet()
+                publishCount(connectionCount.get())
+            }
             LogBus.log("[!] UDP ASSOCIATE kurulamadi: " + (e.message ?: e.javaClass.simpleName))
         }
     }
@@ -359,7 +366,10 @@ class Socks5Server(
                 val dst = parsePacketAddress(buf, pkt.length) ?: continue
                 val (addr, dport, offset) = dst
                 routes[key(addr, dport)] = InetSocketAddress(pkt.address, pkt.port)
-                if (routes.size > 128) routes.clear() // basit tasma korumasi
+                if (routes.size >= 256) {
+                    // P2-8: tabloyu toplu silmek UDP akisini keser; tek girdi düsür (keyHashSet sırası olsun)
+                    routes.remove(routes.keys.first())
+                }
                 try {
                     outbound.send(DatagramPacket(buf, offset, pkt.length - offset, addr, dport))
                 } catch (e: IOException) {
@@ -514,10 +524,11 @@ class Socks5Server(
     private fun firstSiteLocalIp(): InetAddress? = try {
         val nics = Collections.list(NetworkInterface.getNetworkInterfaces())
         nics.asSequence()
-            .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+            .filter { it.isUp && !it.isLoopback } // P1-7: isVirtual filtresi kaldırıldı; bazı cihazlarda mobil NIC 'virtual' işaretlenir
             .flatMap { Collections.list(it.inetAddresses).asSequence() }
             .filterIsInstance<Inet4Address>()
-            .firstOrNull { it.isSiteLocalAddress }
+            .sortedByDescending { it.isSiteLocalAddress } // site-local öncelikli; yoksa herhangi geçerli IPv4
+            .firstOrNull { !it.isLoopbackAddress }
     } catch (_: Exception) {
         null
     }
